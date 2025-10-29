@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register</title>
+    <style>
+        body { font-family: Arial; max-width: 400px; margin: 50px auto; }
+        form { border: 1px solid #ddd; padding: 20px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+        button { background: #28a745; color: white; padding: 10px; width: 100%; cursor: pointer; border: none; }
+        .message { color: green; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Register</h1>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="message">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    <form method="POST">
+        {% csrf_token %}
+        <input type="text" name="username" placeholder="Roll No (e.g., ITA700)" required>
+        <input type="password" name="password" placeholder="Admission No (e.g., 2022PE0000)" required>
+        <button type="submit">Register</button>
+    </form>
+    <p>Already have an account? <a href="/">Login here</a></p>
+</body>
+</html>

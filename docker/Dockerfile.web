@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+# Set working directory inside container
+WORKDIR /app
+
+# Copy requirements first for caching
+COPY django_app/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy entire Django app
+COPY django_app/ .
+
+# Expose port
+EXPOSE 8000
+
+# CMD uses the correct path to manage.py
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]

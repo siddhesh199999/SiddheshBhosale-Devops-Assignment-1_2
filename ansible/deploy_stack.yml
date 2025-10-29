@@ -1,0 +1,59 @@
+---
+- hosts: swarm_manager
+  become: yes
+  vars:
+    app_dir: /opt/devops-app
+    compose_file: docker-compose.yml
+    stack_name: devops-app
+
+  tasks:
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: ../docker/docker-compose.yml
+        dest: "{{ app_dir }}/{{ compose_file }}"
+        mode: '0644'
+
+    - name: Copy Dockerfile (optional, only if building remotely)
+      copy:
+        src: ../docker/Dockerfile.web
+        dest: "{{ app_dir }}/Dockerfile.web"
+        mode: '0644'
+
+    - name: Copy Django app
+      synchronize:
+        src: ../django_app/
+        dest: "{{ app_dir }}/"
+        rsync_opts:
+          - "--exclude=venv"
+          - "--exclude=__pycache__"
+          - "--exclude=*.pyc"
+          - "--exclude=.git"
+          - "--exclude=*.log"
+          - "--exclude=db.sqlite3"
+
+    # Docker load task removed since we use Docker Hub
+
+    - name: Deploy Docker stack
+      shell: docker stack deploy -c "{{ app_dir }}/{{ compose_file }}" "{{ stack_name }}"
+      register: deploy_result
+
+    - name: Wait for web service to appear
+      shell: docker service ls
+      register: services
+      retries: 10
+      delay: 5
+      until: stack_name + "_web" in services.stdout
+
+    - name: Wait for db service to appear
+      shell: docker service ls
+      register: services
+      retries: 10
+      delay: 5
+      until: stack_name + "_db" in services.stdout

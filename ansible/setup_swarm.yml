@@ -1,0 +1,38 @@
+---
+- hosts: swarm_manager
+  become: yes
+  tasks:
+    - name: Initialize Docker Swarm
+      command: docker swarm init --advertise-addr {{ ansible_default_ipv4.address }}
+      register: swarm_init
+      ignore_errors: yes
+
+    - name: Get manager token
+      command: docker swarm join-token -q manager
+      register: manager_token
+
+    - name: Get worker token
+      command: docker swarm join-token -q worker
+      register: worker_token
+
+    - name: Save tokens to file
+      copy:
+        content: |
+          MANAGER_TOKEN={{ manager_token.stdout }}
+          WORKER_TOKEN={{ worker_token.stdout }}
+          MANAGER_IP={{ ansible_default_ipv4.address }}
+        dest: /tmp/swarm_tokens.txt
+
+- hosts: swarm_workers
+  become: yes
+  tasks:
+    - name: Wait for manager to be ready
+      wait_for:
+        host: "{{ hostvars['manager_node']['ansible_default_ipv4']['address'] }}"
+        port: 2377
+        timeout: 60
+
+    - name: Join worker to Swarm
+      command: docker swarm join --token {{ hostvars['manager_node']['worker_token']['stdout'] }} {{ hostvars['manager_node']['ansible_default_ipv4']['address'] }}:2377
+      register: swarm_join
+      ignore_errors: yes

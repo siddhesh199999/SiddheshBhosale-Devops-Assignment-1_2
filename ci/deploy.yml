@@ -1,0 +1,65 @@
+name: Deploy DevOps App
+
+on:
+  push:
+    branches: [ ITA700 ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: |
+          cd terraform
+          terraform init
+
+      - name: Terraform Apply
+        run: |
+          cd terraform
+          terraform apply -auto-approve
+          terraform output -json > /tmp/tf_outputs.json
+
+      - name: Install Ansible
+        run: |
+          pip install ansible
+
+      - name: Get Terraform Outputs
+        run: |
+          cd terraform
+          python3 << 'EOF'
+          import json
+          import sys
+          
+          with open('/tmp/tf_outputs.json') as f:
+              outputs = json.load(f)
+          
+          controller_ip = outputs['controller_public_ip']['value']
+          manager_ip = outputs['swarm_manager_public_ip']['value']
+          worker_a_ip = outputs['swarm_worker_a_public_ip']['value']
+          worker_b_ip = outputs['swarm_worker_b_public_ip']['value']
+          
+          print(f"CONTROLLER_IP={controller_ip}")
+          print(f"MANAGER_IP={manager_ip}")
+          print(f"WORKER_A_IP={worker_a_ip}")
+          print(f"WORKER_B_IP={worker_b_ip}")
+          EOF
+
+      - name: Run Ansible Playbooks
+        run: |
+          cd ansible
+          # Update inventory with IPs (manually or via script)
+          ansible-playbook -i inventory.ini install_docker.yml
+          ansible-playbook -i inventory.ini setup_swarm.yml
+          ansible-playbook -i inventory.ini deploy_stack.yml
